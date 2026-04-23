@@ -32,6 +32,8 @@ A linha v2.3.3 consolidou a aba **Detalhe** como fila operacional, com filtro de
 - `docs/STATUS.md`
 - `docs/ARCHITECTURE.md`
 - `docs/ROADMAP.md`
+- `docs/CHECKLIST_OPERACAO.md`
+- `docs/STATUS_TEMPLATE.md`
 - `CHANGELOG.md`
 
 ## Regras de higiene
