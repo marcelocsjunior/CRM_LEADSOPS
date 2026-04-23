@@ -2,13 +2,29 @@
 
 ## v2.3.3
 
+### Melhorias da aba Detalhe
+
 - aba **Detalhe** evoluída para fila operacional;
 - filtro **Novos/não contactados**;
+- a fila oculta status finais por padrão;
+- ordenação prioriza follow-up vencido, novos sem contato e leads em andamento;
 - navegação entre leads com **Anterior** e **Próximo**;
-- ordenação mais inteligente da fila;
+- seletor do lead mostra score e motivo operacional;
 - recomendação de próxima ação por lead;
-- manutenção do fluxo de e-mail no Android;
+- manutenção do fluxo de e-mail no Android com `mailto:`;
 - atualização aplicada sem sobrescrever a base real.
+
+### Critério do filtro `Novos/não contactados`
+
+Um lead entra nesse filtro quando:
+
+- status = `Novo`;
+- `ultimo_contato` está vazio;
+- não existe interação registrada.
+
+### Objetivo
+
+Transformar a aba Detalhe em fila prática de ataque comercial, reduzindo caça manual de lead e acelerando abordagem no Android.
 
 ## v2.3.2
 
