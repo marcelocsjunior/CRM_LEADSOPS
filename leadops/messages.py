@@ -1,37 +1,104 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Mapping, Any
 
-DEFAULT_IDENTITY = {
-    "nome": "Marcelo Corrêa Jr",
-    "cargo": "Gerente de Tecnologia",
-    "empresa": "Biotech TI",
-    "email_remetente": "comercial@biotechti.com.br",
-    "telefone_assinatura": "(31) 99841-8157",
-    "website": "www.biotechti.com.br",
-    "webmail_url": "https://webmail.biotechti.com.br",
-    "webmail_tipo": "roundcube_cpanel",
-    "assinatura_html": """<div><hr style="margin: 0 0 12px 0; border: 0; border-bottom: 1px solid #000000;" />
-<table style="border-collapse: collapse;" border="0" cellspacing="0" cellpadding="0">
-<tbody>
-<tr>
-<td style="vertical-align: top; padding: 0 14px 0 0;"><img style="display: block; border: 0; outline: none; text-decoration: none;" src="https://biotechti.com.br/Assets/Email/LOGOsolov2.png" alt="Biotech TI" width="90" /></td>
-<td style="font-family: Arial,sans-serif; color: #000000; vertical-align: top;">
-<div style="font-size: 16px; font-weight: bold; line-height: 22px; margin: 0;">Marcelo Corr&ecirc;a Jr</div>
-<div style="font-size: 12px; font-weight: bold; line-height: 18px; margin: 4px 0 10px 0;">Biotech Tecnologia | Eng. Cl&iacute;nica</div>
-<div style="font-size: 12px; line-height: 18px; margin: 0px 0px 4px; text-align: justify;"><a style="color: #000000; text-decoration: underline;" href="mailto:comercial@biotechti.com.br">comercial@biotechti.com.br</a></div>
-<div style="font-size: 12px; line-height: 18px; margin: 0 0 4px 0;"><a style="color: #000000; text-decoration: underline;" href="https://wa.me/5531998418157">(31) 99841-8157</a></div>
-<div style="font-size: 12px; line-height: 18px; margin: 0;"><a style="color: #000000; text-decoration: underline;" href="https://www.biotechti.com.br/">www.biotechti.com.br</a></div>
-</td>
-</tr>
-</tbody>
-</table>
-<hr style="margin: 12px 0 0 0; border: 0; border-bottom: 1px solid #000000;" /></div>""",
+from leadops.identity_defaults import DEFAULT_IDENTITY
+
+FINAL_PIPELINE_STATUSES = {"Ganhou", "Perdido", "Não contatar"}
+CADENCE_BY_STATUS = {
+    "Novo": 2,
+    "Contatado": 3,
+    "Respondeu": 2,
+    "Reunião": 1,
+    "Proposta": 3,
 }
 
 
 def _lower(value: Any) -> str:
     return "" if value is None else str(value).lower()
+
+
+def _parse_iso_date(value: Any) -> date | None:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return date.fromisoformat(text[:10])
+    except ValueError:
+        return None
+
+
+def cadence_days_for_status(status: str | None) -> int:
+    return CADENCE_BY_STATUS.get(str(status or "Novo"), 3)
+
+
+def followup_urgency(lead: Mapping[str, Any], today: date | None = None) -> dict[str, Any]:
+    today = today or date.today()
+    status = str(lead.get("status") or "Novo")
+    cadence_days = cadence_days_for_status(status)
+    followup_date = _parse_iso_date(lead.get("proximo_followup"))
+
+    info: dict[str, Any] = {
+        "status": status,
+        "cadence_days": cadence_days,
+        "followup_date": followup_date,
+        "followup_date_iso": followup_date.isoformat() if followup_date else "",
+        "bucket": "none",
+        "label": "Sem follow-up",
+        "days_overdue": 0,
+        "days_until": None,
+        "priority_rank": 5,
+    }
+
+    if status in FINAL_PIPELINE_STATUSES:
+        info.update({"bucket": "final", "label": status, "priority_rank": 9})
+        return info
+
+    if not followup_date:
+        return info
+
+    delta = (today - followup_date).days
+    info["days_until"] = (followup_date - today).days
+
+    if delta >= 5:
+        info.update(
+            {
+                "bucket": "critical_overdue",
+                "label": "Muito vencido",
+                "days_overdue": delta,
+                "priority_rank": 0,
+            }
+        )
+    elif delta >= 1:
+        info.update(
+            {
+                "bucket": "overdue",
+                "label": "Vencido",
+                "days_overdue": delta,
+                "priority_rank": 1,
+            }
+        )
+    elif delta == 0:
+        info.update(
+            {
+                "bucket": "today",
+                "label": "Hoje",
+                "priority_rank": 2,
+            }
+        )
+    else:
+        info.update(
+            {
+                "bucket": "upcoming",
+                "label": "Agendado",
+                "priority_rank": 3,
+            }
+        )
+
+    return info
 
 
 def classify_profile(lead: Mapping[str, Any]) -> str:
@@ -268,6 +335,8 @@ def call_script(lead: Mapping[str, Any], settings: Mapping[str, Any] | None = No
 
 def recommend_next_action(lead: Mapping[str, Any]) -> tuple[str, str]:
     status = str(lead.get("status") or "Novo")
+    cadence_days = cadence_days_for_status(status)
+    ctx = followup_urgency(lead)
     whatsapp_ok = str(lead.get("whatsapp_status") or "").lower() in {"sim", "confirmado"} or bool(lead.get("whatsapp_numero"))
     email_ok = "@" in str(lead.get("email_publico") or "")
 
@@ -277,6 +346,28 @@ def recommend_next_action(lead: Mapping[str, Any]) -> tuple[str, str]:
         return "Encerrar", "Oportunidade perdida; revisar apenas se houver novo gatilho."
     if status == "Ganhou":
         return "Pós-venda", "Oportunidade convertida; retirar da cadência comercial."
+
+    if ctx["bucket"] == "critical_overdue":
+        return (
+            "Follow-up crítico",
+            f"Follow-up atrasado há {ctx['days_overdue']} dia(s); tratar antes de novos contatos e recuperar a cadência do estágio {status}.",
+        )
+    if ctx["bucket"] == "overdue":
+        return (
+            "Executar follow-up vencido",
+            f"Follow-up atrasado há {ctx['days_overdue']} dia(s); retomar a cadência antes de abrir novos toques.",
+        )
+    if ctx["bucket"] == "today":
+        return (
+            "Executar follow-up hoje",
+            f"Follow-up programado para hoje ({ctx['followup_date_iso']}); manter a cadência do estágio {status}.",
+        )
+    if ctx["bucket"] == "upcoming" and status in {"Contatado", "Respondeu", "Reunião", "Proposta"}:
+        return (
+            "Aguardar follow-up agendado",
+            f"Próximo toque já agendado para {ctx['followup_date_iso']}; cadência mínima sugerida para {status}: D+{cadence_days}.",
+        )
+
     if status == "Novo":
         if whatsapp_ok:
             return "Primeiro contato via WhatsApp", "WhatsApp confirmado/informado e lead ainda está novo."
@@ -284,11 +375,11 @@ def recommend_next_action(lead: Mapping[str, Any]) -> tuple[str, str]:
             return "Enviar e-mail de apresentação", "Sem WhatsApp confirmado; e-mail público disponível."
         return "Ligar para validar contato", "Sem canal digital confiável; telefone é o melhor primeiro passo."
     if status == "Contatado":
-        return "Follow-up curto", "Primeiro toque já ocorreu; agora é cadência leve e objetiva."
+        return "Programar follow-up D+3", f"Primeiro toque já ocorreu; cadência mínima sugerida para o estágio atual: D+{cadence_days}."
     if status == "Respondeu":
-        return "Qualificar demanda", "Lead respondeu; identificar dor real, ambiente e decisor."
+        return "Qualificar demanda", f"Lead respondeu; avançar descoberta e manter retorno em até D+{cadence_days}."
     if status == "Reunião":
-        return "Preparar diagnóstico", "Oportunidade em reunião; vale entrar com roteiro e descoberta."
+        return "Preparar diagnóstico", f"Oportunidade em reunião; vale entrar com roteiro e próximo passo em até D+{cadence_days}."
     if status == "Proposta":
-        return "Follow-up de proposta", "Verificar objeções, janela de decisão e próximo passo."
+        return "Follow-up de proposta", f"Verificar objeções, janela de decisão e manter cadência mínima em D+{cadence_days}."
     return "Revisar manualmente", "Status fora do funil padrão; revisar o cadastro."
