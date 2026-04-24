@@ -167,6 +167,7 @@ leadops.db
 *.err
 *.tmp
 *.bak
+*.bak_*
 *.old
 *.zip
 *.tar
