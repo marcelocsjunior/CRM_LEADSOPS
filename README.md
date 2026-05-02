@@ -23,6 +23,7 @@ A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de
 - Banco real: `/home/biotech/Documentos/LeadOps_TI/data/leadops.db`
 - DEV IA: `/home/biotech/Documentos/LeadOps_TI_DEV_IA`
 - Porta DEV IA: `8502`
+- IA assistiva configurada por ENV externo, sem segredos no repositório
 - Promoção validada com backup e rollback preparado
 - Banco real preservado durante a promoção
 
@@ -36,6 +37,32 @@ A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de
 - documentação/status de release atualizados;
 - política operacional: sem hotfix improvisado daqui para frente.
 
+## Integração IA
+
+A IA no LeadOps TI é assistiva e controlada.
+
+Ela pode apoiar:
+
+- Classificação IA de Leads;
+- Classificação Review;
+- Relatório Review IA;
+- Modo Ataque IA;
+- sugestões de mensagens e abordagem;
+- priorização comercial.
+
+Regra operacional:
+
+```text
+IA sugere.
+Operador revisa.
+Operador confirma.
+Sistema registra.
+```
+
+A IA não envia mensagens, não altera status e não grava decisões definitivas sozinha.
+
+Detalhamento técnico e regras de governança: `docs/AI_INTEGRATION.md`.
+
 ## Stack
 
 - Python
@@ -43,6 +70,7 @@ A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de
 - SQLite
 - Pandas
 - Pytest
+- Integração IA via provider cloud configurado por ENV externo
 - `.venv` local
 - execução via `python -m streamlit run app.py`
 - porta produção `8501`
@@ -66,6 +94,7 @@ A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de
 - `docs/ROADMAP.md`
 - `docs/CHECKLIST_OPERACAO.md`
 - `docs/STATUS_TEMPLATE.md`
+- `docs/AI_INTEGRATION.md`
 - `docs/RELEASE_LEADOPS_v1_5_5_PROMOTION.md`
 - `CHANGELOG.md`
 
