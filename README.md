@@ -18,10 +18,10 @@ A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de
 
 ## Estado operacional
 
-- Produção: `/home/biotech/Documentos/LeadOps_TI`
+- Produção: `/opt/leadops` (VM Ubuntu Server LTS)
 - Porta produção: `8501`
-- Banco real: `/home/biotech/Documentos/LeadOps_TI/data/leadops.db`
-- DEV IA: `/home/biotech/Documentos/LeadOps_TI_DEV_IA`
+- Banco real: `/opt/leadops/data/leadops.db`
+- DEV IA: `/home/biotech/Documentos/LeadOps_TI_DEV_IA` (ambiente de desenvolvimento local)
 - Porta DEV IA: `8502`
 - IA assistiva configurada por ENV externo, sem segredos no repositório
 - Promoção validada com backup e rollback preparado
@@ -70,7 +70,7 @@ Detalhamento técnico e regras de governança: `docs/AI_INTEGRATION.md`.
 - SQLite
 - Pandas
 - Pytest
-- Integração IA via provider cloud configurado por ENV externo
+- Integração IA via provider cloud configurado por ENV externo (via `EnvironmentFile` no Systemd)
 - `.venv` local
 - execução via `python -m streamlit run app.py`
 - porta produção `8501`
@@ -97,6 +97,7 @@ Detalhamento técnico e regras de governança: `docs/AI_INTEGRATION.md`.
 - `docs/AI_INTEGRATION.md`
 - `docs/RELEASE_LEADOPS_v1_5_5_PROMOTION.md`
 - `CHANGELOG.md`
+- `deployment/DEPLOYMENT_GUIDE.md` (Guia de Implantação em Ubuntu Server LTS)
 
 ## Regras de higiene
 
@@ -106,9 +107,13 @@ Não versionar:
 - CSVs reais de leads;
 - `.venv`;
 - logs, `*.pid`, `*.out`;
-- segredos e credenciais;
+- segredos e credenciais (usar `EnvironmentFile` para variáveis de ambiente);
 - arquivos reais de backup operacional.
 
 ## Política pós-promoção
 
 A `v1.5.5` passa a ser o baseline operacional vigente. Novas alterações devem entrar somente como release planejada (`v1.5.6` ou `v1.6.0`), com checklist, teste, backup e rollback. Hotfix solto fica fora do processo.
+
+## Implantação em Servidor (Ubuntu Server LTS)
+
+Para detalhes sobre a implantação em um ambiente de servidor, incluindo configuração de serviço Systemd, ambiente virtual, firewall e rotinas de backup automático, consulte o guia completo em `deployment/DEPLOYMENT_GUIDE.md`.
