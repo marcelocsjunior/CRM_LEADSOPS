@@ -2,118 +2,97 @@
 
 Mini-CRM operacional para prospecção comercial B2B da Biotech TI.
 
-## Status atual
+## 🚀 Status Operacional em Produção
 
 **Baseline operacional vigente:** `LeadOps DEV v1.5.5 — Consolidar WhatsApp Priority`
 
-**Data da promoção:** `2026-05-02 00:12:58`
+| Atributo | Detalhe |
+| :--- | :--- |
+| **Ambiente** | VM Ubuntu Server LTS (10.0.0.107) |
+| **Diretório Base** | `/opt/leadops` |
+| **Banco de Dados** | `/opt/leadops/data/leadops.db` |
+| **Porta Produção** | `8501` |
+| **Serviço** | `leadops-ti.service` (Systemd) |
+| **Backup** | Diário (02:00 AM) com retenção de 7 dias |
 
-**Ambiente promovido:** DEV IA `8502` -> Produção `8501`
+---
 
-**Evidência de promoção:** `PROMOTION_STATUS=OK`
+## 🛠️ Guia Rápido de Implantação (Ubuntu Server)
 
-**Relatório de validação:** `/home/biotech/Documentos/LeadOps_TI_RELEASE_BACKUPS/validation/validate_prod_v1_5_5_20260502_001258.log`
+Para implantar esta ferramenta em um novo servidor Ubuntu Server LTS, siga os blocos de comando abaixo:
 
-A release `v1.5.5` consolidou a camada multicanal de WhatsApp/telefone depois de múltiplos hotfixes, eliminando sobras de patches e padronizando a seleção de contato para evitar regressão operacional.
-
-## Estado operacional
-
-- Produção: `/opt/leadops` (VM Ubuntu Server LTS)
-- Porta produção: `8501`
-- Banco real: `/opt/leadops/data/leadops.db`
-- DEV IA: `/home/biotech/Documentos/LeadOps_TI_DEV_IA` (ambiente de desenvolvimento local)
-- Porta DEV IA: `8502`
-- IA assistiva configurada por ENV externo, sem segredos no repositório
-- Promoção validada com backup e rollback preparado
-- Banco real preservado durante a promoção
-
-## Escopo consolidado na v1.5.5
-
-- remoção de sobras dos hotfixes anteriores;
-- função canônica para seleção de telefone/WhatsApp;
-- prioridade correta para WhatsApp/celular antes de telefone fixo;
-- imports limpos nas páginas;
-- cobertura permanente de teste para Cockpit/ações multicanal;
-- documentação/status de release atualizados;
-- política operacional: sem hotfix improvisado daqui para frente.
-
-## Integração IA
-
-A IA no LeadOps TI é assistiva e controlada.
-
-Ela pode apoiar:
-
-- Classificação IA de Leads;
-- Classificação Review;
-- Relatório Review IA;
-- Modo Ataque IA;
-- sugestões de mensagens e abordagem;
-- priorização comercial.
-
-Regra operacional:
-
-```text
-IA sugere.
-Operador revisa.
-Operador confirma.
-Sistema registra.
+### 1. Preparação e Dependências
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y python3-venv python3-pip git rsync
+sudo adduser --system --no-create-home --group leadops
+sudo mkdir -p /opt/leadops && sudo chown leadops:leadops /opt/leadops
 ```
 
-A IA não envia mensagens, não altera status e não grava decisões definitivas sozinha.
+### 2. Setup do Código e Ambiente Virtual
+```bash
+sudo -u leadops git clone https://github.com/marcelocsjunior/CRM_LEADSOPS.git /opt/leadops
+cd /opt/leadops
+sudo -u leadops python3 -m venv .venv
+sudo -u leadops .venv/bin/pip install -r requirements.txt
+```
 
-Detalhamento técnico e regras de governança: `docs/AI_INTEGRATION.md`.
+### 3. Configuração do Serviço (Systemd)
+Crie o arquivo `/etc/systemd/system/leadops-ti.service`:
+```ini
+[Unit]
+Description=LeadOps TI CRM Service
+After=network.target
 
-## Stack
+[Service]
+User=leadops
+Group=leadops
+WorkingDirectory=/opt/leadops
+Environment="LEADOPS_DB=/opt/leadops/data/leadops.db"
+EnvironmentFile=/etc/leadops/leadops-ti.env
+ExecStart=/opt/leadops/.venv/bin/streamlit run app.py --server.port 8501 --server.address 0.0.0.0
+Restart=always
+```
 
-- Python
-- Streamlit
-- SQLite
-- Pandas
-- Pytest
-- Integração IA via provider cloud configurado por ENV externo (via `EnvironmentFile` no Systemd)
-- `.venv` local
-- execução via `python -m streamlit run app.py`
-- porta produção `8501`
-- porta DEV IA `8502`
+### 4. Ativação e Firewall
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable leadops-ti
+sudo systemctl start leadops-ti
+sudo ufw allow 8501/tcp
+```
 
-## Funil comercial atual
+---
 
-- Novo
-- Contatado
-- Respondeu
-- Reunião
-- Proposta
-- Ganhou
-- Perdido
-- Não contatar
+## 🧠 Integração e Roteamento de IA
 
-## Documentação
+O LeadOps utiliza uma camada assistiva de IA configurada via variáveis de ambiente.
 
-- `docs/STATUS.md`
-- `docs/ARCHITECTURE.md`
-- `docs/ROADMAP.md`
-- `docs/CHECKLIST_OPERACAO.md`
-- `docs/STATUS_TEMPLATE.md`
-- `docs/AI_INTEGRATION.md`
-- `docs/RELEASE_LEADOPS_v1_5_5_PROMOTION.md`
-- `CHANGELOG.md`
-- `deployment/DEPLOYMENT_GUIDE.md` (Guia de Implantação em Ubuntu Server LTS)
+**Configurações em `/etc/leadops/leadops-ti.env`:**
+- `LEADOPS_AI_ENABLED=true`
+- `LEADOPS_AI_PROVIDER=gemini` (Roteamento: Gemini, Cloudflare, Local)
+- `LEADOPS_AI_MODEL=gemini-2.5-flash-lite`
 
-## Regras de higiene
+**Regra de Ouro:**
+> IA sugere. Operador revisa. Operador confirma. Sistema registra.
 
-Não versionar:
+---
 
-- banco SQLite real;
-- CSVs reais de leads;
-- `.venv`;
-- logs, `*.pid`, `*.out`;
-- segredos e credenciais (usar `EnvironmentFile` para variáveis de ambiente);
-- arquivos reais de backup operacional.
+## 📂 Estrutura do Repositório
 
-## Política pós-promoção
+- `leadops/`: Core da aplicação (DB, Scoring, Aging, Queue).
+- `docs/`: Documentação técnica detalhada (Arquitetura, IA, Roadmap).
+- `deployment/`: Templates de serviço, scripts de backup e guias.
+- `app.py`: Ponto de entrada da interface Streamlit.
+- `requirements.txt`: Dependências do projeto.
 
-A `v1.5.5` passa a ser o baseline operacional vigente. Novas alterações devem entrar somente como release planejada (`v1.5.6` ou `v1.6.0`), com checklist, teste, backup e rollback. Hotfix solto fica fora do processo.
+---
 
-## Implantação em Servidor (Ubuntu Server LTS)
+## 🛡️ Segurança e Higiene
 
-Para detalhes sobre a implantação em um ambiente de servidor, incluindo configuração de serviço Systemd, ambiente virtual, firewall e rotinas de backup automático, consulte o guia completo em `deployment/DEPLOYMENT_GUIDE.md`.
+**Não versionar:**
+- Banco SQLite real (`*.db`);
+- Arquivos de ambiente com chaves (`.env` ou `.env.local`);
+- Logs e diretórios de cache (`.cache/`).
+
+Para detalhes completos sobre a arquitetura, consulte `docs/ARCHITECTURE.md`.
