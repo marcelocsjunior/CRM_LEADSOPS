@@ -1,9 +1,19 @@
 from pathlib import Path
 import tempfile
+from datetime import date
 
 from leadops import __version__
 from leadops.db import import_rows, get_lead, list_leads, upsert_lead, init_db, update_lead, get_dashboard_snapshot
-from leadops.messages import email_body, email_subject, first_contact_message, followup_message, classify_profile
+from leadops.messages import (
+    email_body,
+    email_subject,
+    first_contact_message,
+    followup_message,
+    classify_profile,
+    cadence_days_for_status,
+    followup_urgency,
+    recommend_next_action,
+)
 from leadops.scoring import score_lead
 from leadops.utils import gmail_compose_link, lead_key_from_payload, normalize_phone, whatsapp_link, sanitize_roundcube_base_url, roundcube_session_base_url, has_cpanel_session_token, roundcube_compose_link
 
@@ -85,6 +95,58 @@ def test_general_messages():
     assert "empresas aqui da região" in first_contact_message(lead).lower()
     assert email_subject(lead) == "Apoio técnico em TI para empresas"
     assert "só reforçando" in followup_message(2).lower()
+
+
+def test_cadence_days_by_stage():
+    assert cadence_days_for_status("Novo") == 2
+    assert cadence_days_for_status("Contatado") == 3
+    assert cadence_days_for_status("Respondeu") == 2
+    assert cadence_days_for_status("Reunião") == 1
+    assert cadence_days_for_status("Proposta") == 3
+    assert cadence_days_for_status("Qualquer outro") == 3
+
+
+def test_followup_urgency_classifies_today_overdue_and_critical():
+    today = date(2026, 4, 23)
+    due_today = followup_urgency({"status": "Contatado", "proximo_followup": "2026-04-23"}, today=today)
+    overdue = followup_urgency({"status": "Contatado", "proximo_followup": "2026-04-21"}, today=today)
+    critical = followup_urgency({"status": "Proposta", "proximo_followup": "2026-04-15"}, today=today)
+
+    assert due_today["bucket"] == "today"
+    assert overdue["bucket"] == "overdue"
+    assert overdue["days_overdue"] == 2
+    assert critical["bucket"] == "critical_overdue"
+    assert critical["days_overdue"] == 8
+
+
+def test_followup_urgency_classifies_upcoming_and_none():
+    today = date(2026, 4, 23)
+    upcoming = followup_urgency({"status": "Respondeu", "proximo_followup": "2026-04-25"}, today=today)
+    no_followup = followup_urgency({"status": "Contatado"}, today=today)
+
+    assert upcoming["bucket"] == "upcoming"
+    assert upcoming["days_until"] == 2
+    assert no_followup["bucket"] == "none"
+    assert no_followup["cadence_days"] == 3
+
+
+def test_recommend_next_action_prioritizes_overdue_followup():
+    action, reason = recommend_next_action({"status": "Contatado", "proximo_followup": "2026-04-20"})
+    assert action in {"Executar follow-up vencido", "Follow-up crítico"}
+    assert "Follow-up atrasado" in reason or "retomar a cadência" in reason
+
+
+def test_recommend_next_action_waits_when_followup_is_upcoming():
+    future_day = (date.today().replace(day=min(date.today().day + 2, 28))).isoformat()
+    action, reason = recommend_next_action({"status": "Proposta", "proximo_followup": future_day})
+    assert action == "Aguardar follow-up agendado"
+    assert "cadência mínima sugerida" in reason
+
+
+def test_recommend_next_action_suggests_cadence_when_contatado_has_no_followup():
+    action, reason = recommend_next_action({"status": "Contatado"})
+    assert action == "Programar follow-up D+3"
+    assert "D+3" in reason
 
 
 def test_roundcube_cpanel_links_preserve_cpsess_for_compose():

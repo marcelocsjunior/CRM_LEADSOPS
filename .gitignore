@@ -167,6 +167,7 @@ leadops.db
 *.err
 *.tmp
 *.bak
+*.bak_*
 *.old
 *.zip
 *.tar
@@ -185,3 +186,10 @@ data/private/
 leads_real*.csv
 clientes*.csv
 contatos*.csv
+
+# Notebook / operação local
+_backup_*/
+LeadOps_TI_update/
+run.sh.bak_pre_fix
+.gitignore.bak.*
+docs/*.csv
