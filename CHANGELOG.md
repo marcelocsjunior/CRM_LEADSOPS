@@ -1,14 +1,27 @@
-# Changelog
+# Changelog — LeadOps TI
+
+Todas as mudanças relevantes do projeto devem ser registradas neste arquivo.
 
 ## v2.3.3
 
-- aba **Detalhe** evoluída para fila operacional;
-- filtro **Novos/não contactados**;
-- navegação entre leads com **Anterior** e **Próximo**;
-- ordenação mais inteligente da fila;
+Base operacional publicada no repositório.
+
+### Consolidado
+
+- interface principal em Streamlit;
+- funil comercial padronizado;
+- aba Detalhe como fila operacional;
+- filtro de novos/não contactados;
+- navegação entre leads com Anterior e Próximo;
+- ordenação operacional da fila;
 - recomendação de próxima ação por lead;
-- manutenção do fluxo de e-mail no Android;
-- atualização aplicada sem sobrescrever a base real.
+- score comercial com motivos;
+- registro de interações;
+- auditoria de alterações;
+- templates de WhatsApp, e-mail e ligação;
+- exportações CSV;
+- documentação de arquitetura, operação, segurança e roadmap;
+- templates de deploy para Systemd, ambiente e backup.
 
 ## v2.3.2
 
@@ -17,6 +30,12 @@
 - execução padronizada com `.venv` local e `python -m streamlit run app.py`;
 - correções de launcher, score e estabilização de uso local.
 
-## Histórico resumido
+## Convenção futura
 
-O projeto nasceu como MVP local de mini-CRM para prospecção B2B da Biotech e evoluiu para ferramenta operacional real, com foco em simplicidade, rapidez de uso e controle total dos dados.
+Usar categorias:
+
+- `Added` para novos recursos;
+- `Changed` para mudanças funcionais;
+- `Fixed` para correções;
+- `Security` para hardening e proteção de dados;
+- `Docs` para documentação.
